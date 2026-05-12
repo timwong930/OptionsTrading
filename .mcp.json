@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "options-screener": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["--directory", "/workspace/OptionsTrading", "run", "python", "screener_mcp.py"],
+      "env": {
+        "POLYGON_API_KEY": "${POLYGON_API_KEY}",
+        "CACHE_DIR": ".cache"
+      }
+    }
+  }
+}
