@@ -1,0 +1,18 @@
+{
+  "default": "starter_100",
+  "watchlists": {
+    "personal": [],
+    "starter_100": [
+      "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "GOOG", "META", "TSLA", "AVGO", "AMD",
+      "NFLX", "ADBE", "CRM", "ORCL", "NOW", "INTC", "QCOM", "TXN", "AMAT", "MU",
+      "LRCX", "KLAC", "PANW", "CRWD", "SNOW", "SHOP", "UBER", "ABNB", "PYPL", "PLTR",
+      "JPM", "BAC", "WFC", "GS", "MS", "C", "AXP", "BLK", "SCHW", "COF",
+      "V", "MA", "UNH", "LLY", "JNJ", "MRK", "ABBV", "PFE", "TMO", "ABT",
+      "DHR", "ISRG", "GILD", "AMGN", "CVS", "WMT", "COST", "HD", "LOW", "TGT",
+      "MCD", "SBUX", "NKE", "LULU", "BKNG", "DIS", "CMCSA", "PEP", "KO", "MDLZ",
+      "PG", "CL", "KMB", "EL", "XOM", "CVX", "COP", "SLB", "EOG", "OXY",
+      "CAT", "DE", "GE", "HON", "UNP", "UPS", "RTX", "LMT", "BA", "ETN",
+      "LIN", "SHW", "APD", "NEM", "FCX", "NEE", "DUK", "SO", "AMT", "PLD"
+    ]
+  }
+}

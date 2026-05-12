@@ -1,0 +1,60 @@
+{
+  "description": "Manual sector tailwind flags used by the catalyst and paper-trade idea layers. Edit these values as your market view changes.",
+  "sectors": {
+    "Technology": {
+      "active": true,
+      "score_bonus": 10,
+      "note": "AI, cloud, and semiconductor leadership theme."
+    },
+    "Communication Services": {
+      "active": true,
+      "score_bonus": 5,
+      "note": "Mega-cap platform and advertising momentum theme."
+    },
+    "Consumer Cyclical": {
+      "active": false,
+      "score_bonus": 0,
+      "note": "Enable when discretionary breadth improves."
+    },
+    "Financial Services": {
+      "active": false,
+      "score_bonus": 0,
+      "note": "Enable for rate-cut, yield-curve, or credit-cycle setups."
+    },
+    "Healthcare": {
+      "active": false,
+      "score_bonus": 0,
+      "note": "Enable when defensive growth or drug/biotech momentum leads."
+    },
+    "Consumer Defensive": {
+      "active": false,
+      "score_bonus": 0,
+      "note": "Enable during defensive rotation."
+    },
+    "Energy": {
+      "active": false,
+      "score_bonus": 0,
+      "note": "Enable for crude, natural gas, or refining tailwinds."
+    },
+    "Industrials": {
+      "active": false,
+      "score_bonus": 0,
+      "note": "Enable for infrastructure, aerospace, transport, or capex cycles."
+    },
+    "Basic Materials": {
+      "active": false,
+      "score_bonus": 0,
+      "note": "Enable for commodity, metals, or chemical-cycle tailwinds."
+    },
+    "Utilities": {
+      "active": false,
+      "score_bonus": 0,
+      "note": "Enable when rates fall or defensive yield leads."
+    },
+    "Real Estate": {
+      "active": false,
+      "score_bonus": 0,
+      "note": "Enable for REIT/rate-sensitive recovery setups."
+    }
+  }
+}
