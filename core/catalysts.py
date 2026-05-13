@@ -78,7 +78,7 @@ def _dividend_info(ticker: yf.Ticker) -> dict[str, Any]:
         info = getattr(ticker, "info", {}) or {}
         ex_raw = info.get("exDividendDate")
         if ex_raw:
-            return {"ex_dividend_date": dt.date.fromtimestamp(int(ex_raw), dt.UTC).isoformat(), "dividend_flags": []}
+            return {"ex_dividend_date": dt.datetime.fromtimestamp(int(ex_raw), dt.UTC).date().isoformat(), "dividend_flags": []}
         return {"ex_dividend_date": None, "dividend_flags": ["dividend_date_missing"]}
     except Exception as exc:
         return {"ex_dividend_date": None, "dividend_flags": [f"dividend_lookup_failed:{type(exc).__name__}"]}

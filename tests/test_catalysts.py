@@ -24,6 +24,16 @@ class CatalystTests(unittest.TestCase):
         self.assertIn("recent EPS surprise +5.0%", summary)
         self.assertIn("latest analyst action up", summary)
 
+    def test_dividend_info_uses_info_ex_dividend_timestamp_when_calendar_missing(self):
+        t = Mock()
+        t.calendar = {}
+        t.info = {"exDividendDate": int(dt.datetime(2026, 6, 15, tzinfo=dt.UTC).timestamp())}
+
+        out = cat._dividend_info(t)
+
+        self.assertEqual(out["ex_dividend_date"], "2026-06-15")
+        self.assertEqual(out["dividend_flags"], [])
+
     @patch("core.catalysts.yf.Ticker")
     @patch("core.catalysts.get_sector_tailwind", return_value={"active": False})
     def test_graceful_fallback_behavior(self, _tailwind, mock_ticker):
