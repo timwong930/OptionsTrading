@@ -744,7 +744,7 @@ wheels = [
 [[package]]
 name = "options-trading-screener"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "diskcache" },
     { name = "fastmcp" },
