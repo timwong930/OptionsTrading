@@ -197,18 +197,43 @@ def cli() -> None:
     parser.add_argument("--tickers", default="", help="comma-separated tickers; falls back to configured watchlist")
     parser.add_argument("--watchlist", default=None, help="configured watchlist name, defaults to config/universe.json")
     parser.add_argument("--top", type=int, default=10)
+    parser.add_argument("--min-dte", type=int, default=60, help="minimum option days to expiration for scoring")
+    parser.add_argument("--max-dte", type=int, default=120, help="maximum option days to expiration for scoring")
+    parser.add_argument("--contracts", type=int, default=1, help="paper-trade contract count when --paper is used")
     parser.add_argument("--sectors", help="comma-separated sector allowlist", default="")
     parser.add_argument("--paper", action="store_true", help="emit paper-trade idea templates")
     parser.add_argument("--backtest", action="store_true", help="run the stock setup proxy backtest")
     args = parser.parse_args()
+    if args.min_dte <= 0 or args.max_dte <= 0:
+        parser.error("--min-dte and --max-dte must be positive integers")
+    if args.min_dte > args.max_dte:
+        parser.error("--min-dte cannot be greater than --max-dte")
+    if args.contracts <= 0:
+        parser.error("--contracts must be a positive integer")
+
     sectors = [s.strip() for s in args.sectors.split(",") if s.strip()] or None
     tickers = [t.strip().upper() for t in args.tickers.split(",") if t.strip()] or None
     if args.backtest:
         out = backtest_score(tickers=tickers, watchlist=args.watchlist)
     elif args.paper:
-        out = make_paper_trade_candidates(tickers=tickers, watchlist=args.watchlist, top_n=args.top, allowed_sectors=sectors)
+        out = make_paper_trade_candidates(
+            tickers=tickers,
+            watchlist=args.watchlist,
+            top_n=args.top,
+            contracts=args.contracts,
+            min_dte=args.min_dte,
+            max_dte=args.max_dte,
+            allowed_sectors=sectors,
+        )
     else:
-        out = score_candidates(tickers=tickers, watchlist=args.watchlist, top_n=args.top, allowed_sectors=sectors)
+        out = score_candidates(
+            tickers=tickers,
+            watchlist=args.watchlist,
+            top_n=args.top,
+            min_dte=args.min_dte,
+            max_dte=args.max_dte,
+            allowed_sectors=sectors,
+        )
     print(json.dumps(out, indent=2, default=str))
 
 
