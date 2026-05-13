@@ -366,3 +366,55 @@ mkdir -p runs
 uv run python screener_mcp.py --watchlist starter_100 --top 10 --min-dte 60 --max-dte 120 > "runs/$(date -u +%Y-%m-%d)-scores.json"
 uv run python screener_mcp.py --watchlist starter_100 --top 5 --paper --contracts 1 --min-dte 60 --max-dte 120 > "runs/$(date -u +%Y-%m-%d)-paper.json"
 ```
+
+## End-to-end trade decision engine
+
+Use `--analyze` to run the full ticker workflow: technical context, catalyst snapshot, normalized option chain, IV analytics, budget-aware strategy selection, and a concrete trade-management plan.
+
+```bash
+uv run python screener_mcp.py --analyze --tickers SBUX --bias bullish --budget 500 --portfolio 5000 --horizon-days 45
+```
+
+The engine prefers defined-risk trades for small accounts. It will choose a debit spread when a naked option is too expensive, a credit spread when IV is elevated and the risk fits, a cash-secured put only when collateral fits the budget, or `no_trade` when liquidity/data quality/setup is not good enough.
+
+Key output fields include:
+
+- `tradable`, `recommended_strategy`, `recommended_expiry`, and `recommended_legs`
+- `estimated_debit` or `estimated_credit`, `max_loss`, `max_profit`, and `breakeven`
+- `budget_fit`, `suggested_contract_count`, `risk_budget`, and `risk_pct_of_portfolio`
+- `entry_plan`, `exit_plan`, `invalidation`, and detailed `trade_plan`
+- `catalyst_summary`, `next_earnings_date`, recent earnings, dividends, headlines, and analyst actions when public data is available
+- `iv_current`, `iv_rank`, `iv_percentile`, `iv_method`, and explicit fallback/data-quality flags
+
+New MCP tools:
+
+- `analyze_ticker_trade` — returns the end-to-end structured trade plan.
+- `create_paper_trade` — stores the original recommendation and thesis in the paper journal.
+- `update_paper_trade` — updates status, prices, thesis, risk, quantity, or lessons.
+- `close_paper_trade` — closes a journal entry and records lessons learned.
+- `list_paper_trades` — lists active/closed/all paper trades.
+- `paper_trade_stats` — summarizes paper-trading results.
+
+## Data quality and normalization
+
+Option rows now preserve raw source values in `raw` and add normalized fields for OCC contract parsing, strike sanity checks, bid/ask/mid, spread percentage, volume, open interest, stale quote detection, liquidity flags, and malformed-contract flags. Recommendations carry `data_quality_flags` so proxied, missing, stale, inferred, or illiquid inputs are visible instead of silently trusted.
+
+## Paper trade journal lifecycle
+
+The persistent paper journal is SQLite-backed and defaults to `.cache/paper_trades.sqlite` via `CACHE_DIR`. A typical MCP flow is:
+
+1. Call `analyze_ticker_trade`.
+2. If the result is tradable, pass that JSON into `create_paper_trade` with your thesis.
+3. Use `update_paper_trade` for notes or interim price changes.
+4. Use `close_paper_trade` with exit price and lessons learned.
+5. Review `paper_trade_stats` over time.
+
+## Tests
+
+Run the full deterministic test suite with:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Coverage includes option normalization, catalyst fallback/summarization, IV rank/proxy behavior, budget-aware strategy selection, liquidity rejection, horizon-aware expiry selection, and paper-trade create/update/close/stats.

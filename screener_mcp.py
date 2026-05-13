@@ -26,6 +26,8 @@ from core.chains import get_call_chain
 from core.config import list_watchlists, load_sector_tailwinds, resolve_tickers
 from core.data import yf_history, yf_sector
 from core.ivrank import iv_rank, log_atm_iv
+from core.engine import analyze_trade
+from core.journal import close_trade, create_trade, list_trades, trade_stats, update_trade
 from core.paper import make_paper_trade_ideas
 from core.scoring import score_contract
 from core.screener import screen_universe
@@ -174,6 +176,49 @@ def make_paper_trade_candidates(
 
 
 @mcp.tool
+def analyze_ticker_trade(
+    symbol: str,
+    bias: str = "auto",
+    budget: float = 500.0,
+    portfolio_value: float = 5000.0,
+    horizon_days: int = 45,
+) -> dict:
+    """Analyze one ticker end-to-end and return a budget-aware options trade plan."""
+    return analyze_trade(symbol, bias=bias, budget=budget, portfolio_value=portfolio_value, horizon_days=horizon_days)
+
+
+@mcp.tool
+def create_paper_trade(plan: dict, thesis: str | None = None, quantity: int | None = None) -> dict:
+    """Create an active paper-trade journal entry from an analyze_ticker_trade result."""
+    return create_trade(plan, thesis=thesis, quantity=quantity)
+
+
+@mcp.tool
+def update_paper_trade(trade_id: str, fields: dict) -> dict:
+    """Update a paper trade's mutable fields (status, prices, thesis, lessons, quantity)."""
+    return update_trade(trade_id, **fields)
+
+
+@mcp.tool
+def close_paper_trade(trade_id: str, exit_price: float, lessons: str | None = None) -> dict:
+    """Close a paper trade and attach optional lessons learned."""
+    return close_trade(trade_id, exit_price=exit_price, lessons=lessons)
+
+
+@mcp.tool
+def list_paper_trades(status: str | None = None) -> dict:
+    """List paper trades, optionally filtered by active/closed status."""
+    trades = list_trades(status=status)
+    return {"count": len(trades), "trades": trades}
+
+
+@mcp.tool
+def paper_trade_stats() -> dict:
+    """Return aggregate paper-trading statistics."""
+    return trade_stats()
+
+
+@mcp.tool
 def backtest_score(
     tickers: list[str] | None = None,
     watchlist: str | None = None,
@@ -203,6 +248,11 @@ def cli() -> None:
     parser.add_argument("--sectors", help="comma-separated sector allowlist", default="")
     parser.add_argument("--paper", action="store_true", help="emit paper-trade idea templates")
     parser.add_argument("--backtest", action="store_true", help="run the stock setup proxy backtest")
+    parser.add_argument("--analyze", action="store_true", help="run end-to-end trade engine for the first ticker")
+    parser.add_argument("--budget", type=float, default=500.0, help="maximum dollars risked on the idea")
+    parser.add_argument("--portfolio", type=float, default=5000.0, help="paper portfolio value for sizing")
+    parser.add_argument("--bias", default="auto", choices=["auto", "bullish", "bearish", "neutral"], help="directional bias override")
+    parser.add_argument("--horizon-days", type=int, default=45, help="expected trade horizon for the end-to-end analyzer")
     args = parser.parse_args()
     if args.min_dte <= 0 or args.max_dte <= 0:
         parser.error("--min-dte and --max-dte must be positive integers")
@@ -213,7 +263,12 @@ def cli() -> None:
 
     sectors = [s.strip() for s in args.sectors.split(",") if s.strip()] or None
     tickers = [t.strip().upper() for t in args.tickers.split(",") if t.strip()] or None
-    if args.backtest:
+    if args.analyze:
+        selected = (tickers or resolve_tickers(None, args.watchlist))
+        if not selected:
+            parser.error("--analyze requires --tickers or configured watchlist")
+        out = analyze_ticker_trade(selected[0], bias=args.bias, budget=args.budget, portfolio_value=args.portfolio, horizon_days=args.horizon_days)
+    elif args.backtest:
         out = backtest_score(tickers=tickers, watchlist=args.watchlist)
     elif args.paper:
         out = make_paper_trade_candidates(
