@@ -26,10 +26,9 @@ from core.chains import get_call_chain
 from core.config import list_watchlists, load_sector_tailwinds, resolve_tickers
 from core.data import yf_history, yf_sector
 from core.ivrank import iv_rank, log_atm_iv
-from core.engine import analyze_trade
+from core.engine import analyze_trade, score_option_candidates
 from core.journal import close_trade, create_trade, list_trades, trade_stats, update_trade
 from core.paper import make_paper_trade_ideas
-from core.scoring import score_contract
 from core.screener import screen_universe
 
 mcp = FastMCP(name="options-screener")
@@ -116,35 +115,54 @@ def score_candidates(
 ) -> dict:
     """Run the full screen → chain → catalyst → score pipeline and return top contracts."""
     candidates: list[dict] = []
+    rejects: list[dict] = []
     universe = resolve_tickers(tickers, watchlist)
     passing = screen_universe(universe, allowed_sectors=allowed_sectors)
+    passing_symbols = {row.get("symbol") for row in passing if "error" not in row}
+    for sym in [s.strip().upper() for s in universe if s.strip()]:
+        if sym not in passing_symbols and not any(row.get("symbol") == sym and "error" in row for row in passing):
+            rejects.append({"symbol": sym, "category": "stock_setup", "reason": "did not pass bullish stock screen before option-chain scoring"})
     for tech in passing:
         if "error" in tech:
-            candidates.append(tech)
+            rejects.append({"symbol": tech.get("symbol"), "category": "data", "reason": tech.get("error")})
             continue
         sym = tech["symbol"]
         try:
             chain = get_call_chain(sym, min_dte, max_dte)
+            liquid_chain = [c for c in chain if c.get("liquid") and not c.get("stale") and c.get("mid")]
             cat = has_catalyst(sym, max_dte, tech.get("sector"))
             spot = tech["price"]
             atm = min((c for c in chain if c.get("iv")), key=lambda c: abs(c["strike"] - spot), default=None)
-            ivr_info = iv_rank(sym, atm["iv"]) if atm and atm.get("iv") else {"ivr": None}
-            for c in chain:
-                if c.get("delta") is None:
-                    continue
-                if not (0.30 <= c["delta"] <= 0.90):
-                    continue
-                score = score_contract(c, tech, cat, ivr_info)
-                candidates.append({**c, **score, "technical": tech, "catalyst": cat, "ivr": ivr_info})
+            ivr_info = iv_rank(sym, atm["iv"]) if atm and atm.get("iv") else {"ivr": None, "method": "missing", "data_quality_flags": ["missing_atm_iv"]}
+            scored_for_symbol = score_option_candidates(liquid_chain, tech, cat, ivr_info, "bullish")
+            if not scored_for_symbol:
+                flags = sorted({flag for c in chain for flag in c.get("data_quality_flags", [])})
+                rejects.append({"symbol": sym, "category": "options_quality", "reason": "no liquid call contracts passed scorer delta/liquidity filters", "contracts": len(chain), "liquid_contracts": len(liquid_chain), "data_quality_flags": flags})
+                continue
+            candidates.extend(scored_for_symbol)
         except Exception as exc:
-            candidates.append({"symbol": sym, "error": str(exc)})
+            rejects.append({"symbol": sym, "category": "error", "reason": str(exc)})
     scored = [c for c in candidates if "score" in c]
     scored.sort(key=lambda c: c["score"], reverse=True)
+    shortlist = [
+        {
+            "symbol": c.get("symbol"),
+            "contract": c.get("contractSymbol"),
+            "expiry": c.get("expiry"),
+            "strike": c.get("strike"),
+            "mid": c.get("mid"),
+            "score": c.get("score"),
+            "rationale": f"Liquid bullish call candidate; score {c.get('score')}, delta {round(c.get('delta'), 2) if c.get('delta') is not None else None}, spread {c.get('spread_pct')}%.",
+        }
+        for c in scored[:top_n]
+    ]
     return {
         "universe_count": len(universe),
         "top": scored[:top_n],
+        "shortlist": shortlist,
         "total_scored": len(scored),
-        "errors": [c for c in candidates if "error" in c],
+        "rejects": rejects,
+        "errors": [r for r in rejects if r.get("category") in {"error", "data"}],
         "as_of": dt.datetime.now(dt.UTC).isoformat(),
     }
 
