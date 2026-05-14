@@ -60,6 +60,36 @@ class StrategyEngineTests(unittest.TestCase):
         self.assertEqual(out["recommended_strategy"], "no_trade")
         self.assertEqual(out["reason"], "insufficient liquid contracts")
 
+    @patch("core.engine.yf_sector", return_value="Technology")
+    @patch("core.engine.log_atm_iv")
+    @patch("core.engine.iv_rank", return_value={"iv_rank": 35, "iv_percentile": 40, "method": "self_collected", "data_quality_flags": []})
+    @patch("core.engine.get_option_chain")
+    @patch("core.engine.catalyst_snapshot", return_value={"catalyst": True, "catalyst_summary": "test", "data_quality_flags": [], "event_risk_notes": []})
+    @patch("core.engine._technical_snapshot")
+    def test_reports_budget_cap_without_clamping_to_old_default(self, mock_tech, _cat, mock_chain, *_):
+        mock_tech.return_value = self.tech
+        mock_chain.return_value = self.chain
+        out = analyze_trade("XYZ", bias="bullish", budget=500, portfolio_value=5000)
+        self.assertEqual(out["risk_budget"], 250)
+        self.assertTrue(out["budget"]["capped"])
+        self.assertEqual(out["budget"]["requested_budget"], 500)
+        self.assertIn("Risk budget capped", out["budget"]["cap_explanation"])
+
+    @patch("core.engine.yf_sector", return_value="Technology")
+    @patch("core.engine.log_atm_iv")
+    @patch("core.engine.iv_rank", return_value={"iv_rank": None, "iv_percentile": None, "method": "insufficient_history", "history_quality": "insufficient_history", "data_quality_flags": ["insufficient_iv_history"], "fallback": {"proxy_ivr": 45, "method": "vix_proxy"}})
+    @patch("core.engine.get_option_chain")
+    @patch("core.engine.catalyst_snapshot", return_value={"catalyst": True, "catalyst_summary": "test", "data_quality_flags": [], "event_risk_notes": []})
+    @patch("core.engine._technical_snapshot")
+    def test_thin_iv_history_downgrades_but_does_not_block_liquid_trade(self, mock_tech, _cat, mock_chain, *_):
+        mock_tech.return_value = self.tech
+        mock_chain.return_value = self.chain
+        out = analyze_trade("XYZ", bias="bullish", budget=250, portfolio_value=10000)
+        self.assertTrue(out["tradable"])
+        self.assertEqual(out["iv_history_quality"], "insufficient_history")
+        self.assertEqual(out["iv_proxy_label"], "PROXY IV ESTIMATE - not single-name IV rank")
+        self.assertIn("insufficient_iv_history", out["data_quality_flags"])
+
     @patch("core.engine._technical_snapshot", return_value={"bias": "neutral", "price": 100})
     def test_rejects_bad_setups(self, _tech):
         out = analyze_trade("XYZ", bias="auto")

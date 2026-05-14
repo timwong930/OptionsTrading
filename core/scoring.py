@@ -26,18 +26,28 @@ def score_contract(c: dict, tech: dict, cat: dict, ivr_info: dict) -> dict:
     """Score a single enriched call contract against the seven-criterion model."""
     ivr = ivr_info.get("ivr")
     if ivr is None:
-        ivr = ivr_info.get("fallback", {}).get("proxy_ivr", 50)
+        ivr = ivr_info.get("iv_rank")
+    if ivr is None:
+        ivr = ivr_info.get("fallback", {}).get("proxy_ivr")
+    if ivr is None:
+        ivr = 50
 
     open_interest = c.get("openInterest") or 0
     spread_pct = c.get("spread_pct") if c.get("spread_pct") is not None else 99
     delta = c.get("delta")
+    dte = c.get("dte")
+    if dte is None and c.get("expiry"):
+        import datetime as dt
+
+        dte = max((dt.date.fromisoformat(c["expiry"]) - dt.date.today()).days, 0)
+    dte = dte if dte is not None else 0
 
     sub = {
         "ivr": _piecewise(float(ivr), [(0, 100), (30, 100), (60, 0), (100, 0)]),
         "oi": 100 if open_interest >= 500 else open_interest / 5,
         "spread": _piecewise(float(spread_pct), [(0, 100), (2, 100), (5, 50), (8, 0), (99, 0)]),
         "delta": 100 if delta is not None and 0.50 <= delta <= 0.85 else 0,
-        "dte": _piecewise(float(c["dte"]), [(0, 0), (60, 100), (120, 100), (180, 0)]),
+        "dte": _piecewise(float(dte), [(0, 0), (60, 100), (120, 100), (180, 0)]),
         "tech": 100 if tech.get("bullish") else 0,
         "catalyst": 100 if cat.get("catalyst") else 30,
     }
